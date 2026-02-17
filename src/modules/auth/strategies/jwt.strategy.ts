@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 
 import { User } from '../entities/user.entity';
 import { Role } from '../../../common/enums/role.enum';
+import { ConfigService } from '@nestjs/config';
 
 export interface JwtPayload {
     sub: string;
@@ -17,11 +18,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     constructor(
         @InjectRepository(User)
         private readonly usersRepository: Repository<User>,
+        configService: ConfigService,
     ) {
+        const secret = configService.get<string>('JWT_SECRET');
+
+        if (!secret) {
+            throw new Error('JWT_SECRET is not defined');
+        }
+
         super({
             jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
-            secretOrKey: process.env.JWT_SECRET,
+            secretOrKey: secret,
         });
     }
 
