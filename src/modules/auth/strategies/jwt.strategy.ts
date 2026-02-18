@@ -1,12 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-
-import { User } from '../entities/user.entity';
-import { Role } from '../../../common/enums/role.enum';
 import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../../users/users.service';
+import { Role } from '../../../common/enums/role.enum';
 
 export interface JwtPayload {
     sub: string;
@@ -16,8 +13,7 @@ export interface JwtPayload {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
     constructor(
-        @InjectRepository(User)
-        private readonly usersRepository: Repository<User>,
+        private readonly usersService: UsersService,
         configService: ConfigService,
     ) {
         const secret = configService.get<string>('JWT_SECRET');
@@ -34,9 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: JwtPayload) {
-        const user = await this.usersRepository.findOne({
-            where: { id: payload.sub },
-        });
+        const user = await this.usersService.findById(payload.sub);
 
         if (!user) {
             throw new UnauthorizedException('User no longer exists');

@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -7,16 +6,17 @@ import { StringValue } from 'ms';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RolesGuard } from './guards/roles.guard';
-import { AuthSeeder } from './seeder/auth.seeder';
-import { User } from './entities/user.entity';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { UsersModule } from '../users/users.module';
+import { AdminSeeder } from 'src/common/seeders/admin.seeder';
+import { UsersService } from '../users/users.service';
 
 @Module({
     imports: [
         ConfigModule,
 
-        TypeOrmModule.forFeature([User]),
+        UsersModule,
 
         PassportModule,
 
@@ -45,7 +45,7 @@ import { User } from './entities/user.entity';
         }),
     ],
     controllers: [AuthController],
-    providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, AuthSeeder,],
+    providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, AdminSeeder],
     exports: [JwtAuthGuard, RolesGuard],
 })
 export class AuthModule { }

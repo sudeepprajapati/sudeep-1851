@@ -1,19 +1,14 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AuthService } from '../auth.service';
-import { Role } from '../../../common/enums/role.enum';
+import { UsersService } from '../../modules/users/users.service';
+import { Role } from '../enums/role.enum';
 
-/**
- * AuthSeeder is responsible for seeding default admin user on application startup.
- * It implements OnModuleInit to run automatically when the AuthModule initializes.
- * It is idempotent - safe to run multiple times without creating duplicates.
- */
 @Injectable()
-export class AuthSeeder implements OnModuleInit {
-    private readonly logger = new Logger(AuthSeeder.name);
+export class AdminSeeder implements OnModuleInit {
+    private readonly logger = new Logger(AdminSeeder.name);
 
     constructor(
-        private readonly authService: AuthService,
+        private readonly usersService: UsersService,
         private readonly configService: ConfigService,
     ) { }
 
@@ -42,7 +37,7 @@ export class AuthSeeder implements OnModuleInit {
         }
 
         try {
-            const result = await this.authService.createUserWithRole(
+            const result = await this.usersService.createUserWithRole(
                 adminEmail,
                 adminPassword,
                 Role.ADMIN,

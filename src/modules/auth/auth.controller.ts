@@ -2,11 +2,10 @@ import { Controller, Post, Body, UseGuards, Get, Request } from '@nestjs/common'
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
-import { CreateUserDto } from './dto/create-user.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Role } from 'src/common/enums/role.enum';
-import { Roles } from './decorators/roles.decorator';
-import { RolesGuard } from './guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -34,53 +33,4 @@ export class AuthController {
     adminOnly() {
         return { message: 'Admin access granted' };
     }
-
-    @Post('create-admin')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    async createAdmin(@Body() createUserDto: CreateUserDto) {
-        const result = await this.authService.createUserWithRole(
-            createUserDto.email,
-            createUserDto.password,
-            Role.ADMIN,
-        );
-
-        if (!result) {
-            return {
-                success: false,
-                message: 'Failed to create admin user. Email may already exist.',
-            };
-        }
-
-        return {
-            success: true,
-            message: 'Admin user created successfully',
-            user: this.authService.excludePasswordFromUser(result),
-        };
-    }
-
-    @Post('create-brand')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    async createBrand(@Body() createUserDto: CreateUserDto) {
-        const result = await this.authService.createUserWithRole(
-            createUserDto.email,
-            createUserDto.password,
-            Role.BRAND,
-        );
-
-        if (!result) {
-            return {
-                success: false,
-                message: 'Failed to create brand user. Email may already exist.',
-            };
-        }
-
-        return {
-            success: true,
-            message: 'Brand user created successfully',
-            user: this.authService.excludePasswordFromUser(result),
-        };
-    }
-
 }
