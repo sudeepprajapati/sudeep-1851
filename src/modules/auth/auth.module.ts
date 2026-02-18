@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { AuthSeeder } from './seeder/auth.seeder';
 import { User } from './entities/user.entity';
 
 @Module({
@@ -22,13 +23,17 @@ import { User } from './entities/user.entity';
         JwtModule.registerAsync({
             inject: [ConfigService],
             useFactory: (configService: ConfigService) => {
-                const secret = configService.get<string>('JWT_SECRET');
-                const expiresIn =
-                    (configService.get<string>('JWT_EXPIRES_IN') || '86400') as StringValue;
+                const secret = configService.getOrThrow<string>('JWT_SECRET');
+                const expiresInRaw = configService.getOrThrow<string>('JWT_EXPIRES_IN');
 
-                if (!secret) {
-                    throw new Error('JWT_SECRET is not defined');
+                // Validate format strictly
+                if (!/^\d+(s|m|h|d)$/.test(expiresInRaw)) {
+                    throw new Error(
+                        'JWT_EXPIRES_IN must include a time unit suffix (e.g., 86400s, 24h, 7d)',
+                    );
                 }
+
+                const expiresIn = expiresInRaw as StringValue;
 
                 return {
                     secret,
@@ -36,12 +41,11 @@ import { User } from './entities/user.entity';
                         expiresIn,
                     },
                 };
-            },
+            }
         }),
-
     ],
     controllers: [AuthController],
-    providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],
+    providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, AuthSeeder,],
     exports: [JwtAuthGuard, RolesGuard],
 })
 export class AuthModule { }

@@ -3,6 +3,7 @@ import {
     ConflictException,
     UnauthorizedException,
     InternalServerErrorException,
+    Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
@@ -21,6 +22,7 @@ interface JwtPayload {
 
 @Injectable()
 export class AuthService {
+    private readonly logger = new Logger(AuthService.name);
     private readonly SALT_ROUNDS = 12;
 
     constructor(
@@ -85,6 +87,52 @@ export class AuthService {
         };
     }
 
+    async createUserWithRole(
+        email: string,
+        password: string,
+        role: Role,
+    ): Promise<User | null> {
+
+        const existingUser = await this.usersRepository.findOne({
+            where: { email },
+            select: ['id'],
+        });
+
+        if (existingUser) {
+            return null;
+        }
+
+        const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
+
+        const user = this.usersRepository.create({
+            email,
+            password: hashedPassword,
+            role,
+        });
+
+        try {
+            await this.usersRepository.save(user);
+            return user;
+        } catch (error: any) {
+
+            if (error?.code === '23505') {
+                this.logger.debug(
+                    `User with email ${email} already exists (unique constraint).`,
+                );
+                return null;
+            }
+
+            this.logger.error(
+                `Critical DB error while creating user with role ${role}: ${error?.message || String(error)}`,
+                error instanceof Error ? error.stack : '',
+            );
+
+            throw new InternalServerErrorException(
+                'Database error during user creation',
+            );
+        }
+    }
+
     private generateAccessToken(user: User): string {
         const payload: JwtPayload = {
             sub: user.id,
@@ -95,6 +143,11 @@ export class AuthService {
     }
 
     private excludePassword(user: User) {
+        const { password, ...safeUser } = user;
+        return safeUser;
+    }
+
+    public excludePasswordFromUser(user: User) {
         const { password, ...safeUser } = user;
         return safeUser;
     }
