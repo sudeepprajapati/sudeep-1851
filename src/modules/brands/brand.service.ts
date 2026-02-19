@@ -1,4 +1,10 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import {
+    Injectable,
+    BadRequestException,
+    NotFoundException,
+    ForbiddenException,
+    Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Brand } from './entities/brand.entity';
@@ -22,24 +28,32 @@ export class BrandService {
             throw new ForbiddenException('Only ADMIN users can create brands');
         }
 
+        // Check if brand already exists
+        const existingBrand = await this.brandRepo.findOne({
+            where: { name: dto.name },
+        });
+
+        if (existingBrand) {
+            throw new BadRequestException(
+                `Brand with name '${dto.name}' already exists`,
+            );
+        }
+
         const brand = this.brandRepo.create({
             ...dto,
             createdBy: admin,
         });
-        const saved = await this.brandRepo.save(brand);
 
-        return {
-            id: saved.id,
-            name: saved.name,
-            description: saved.description,
-            logoUrl: saved.logoUrl,
-            createdAt: saved.createdAt,
-            updatedAt: saved.updatedAt,
-            createdBy: {
-                id: admin.id,
-                email: admin.email,
-            },
-        };
+        try {
+            const saved = await this.brandRepo.save(brand);
+            return this.mapToResponse(saved);
+        } catch (error: any) {
+            // Postgres unique constraint error
+            if (error.code === '23505') {
+                throw new BadRequestException('Brand already exists');
+            }
+            throw error;
+        }
     }
 
     async findAll(): Promise<BrandResponseDto[]> {
@@ -51,18 +65,7 @@ export class BrandService {
             if (!brand.createdBy) {
                 this.logger.warn(`Brand ${brand.id} has no createdBy user`);
             }
-            return {
-                id: brand.id,
-                name: brand.name,
-                description: brand.description,
-                logoUrl: brand.logoUrl,
-                createdAt: brand.createdAt,
-                updatedAt: brand.updatedAt,
-                createdBy: brand.createdBy ? {
-                    id: brand.createdBy.id,
-                    email: brand.createdBy.email,
-                } : null,
-            };
+            return this.mapToResponse(brand);
         });
     }
 
@@ -80,18 +83,7 @@ export class BrandService {
             this.logger.warn(`Brand ${id} has no createdBy user`);
         }
 
-        return {
-            id: brand.id,
-            name: brand.name,
-            description: brand.description,
-            logoUrl: brand.logoUrl,
-            createdAt: brand.createdAt,
-            updatedAt: brand.updatedAt,
-            createdBy: brand.createdBy ? {
-                id: brand.createdBy.id,
-                email: brand.createdBy.email,
-            } : null,
-        };
+        return this.mapToResponse(brand);
     }
 
     async update(id: number, dto: UpdateBrandDto): Promise<BrandResponseDto> {
@@ -111,18 +103,7 @@ export class BrandService {
         Object.assign(brand, dto);
         const updatedBrand = await this.brandRepo.save(brand);
 
-        return {
-            id: updatedBrand.id,
-            name: updatedBrand.name,
-            description: updatedBrand.description,
-            logoUrl: updatedBrand.logoUrl,
-            createdAt: updatedBrand.createdAt,
-            updatedAt: updatedBrand.updatedAt,
-            createdBy: updatedBrand.createdBy ? {
-                id: updatedBrand.createdBy.id,
-                email: updatedBrand.createdBy.email,
-            } : null,
-        };
+        return this.mapToResponse(updatedBrand);
     }
 
     async delete(id: number) {
@@ -133,5 +114,25 @@ export class BrandService {
         }
 
         return { message: 'Brand deleted successfully' };
+    }
+
+    // -----------------------------
+    // Private Mapper
+    // -----------------------------
+    private mapToResponse(brand: Brand): BrandResponseDto {
+        return {
+            id: brand.id,
+            name: brand.name,
+            description: brand.description,
+            logoUrl: brand.logoUrl,
+            createdAt: brand.createdAt,
+            updatedAt: brand.updatedAt,
+            createdBy: brand.createdBy
+                ? {
+                    id: brand.createdBy.id,
+                    email: brand.createdBy.email,
+                }
+                : null,
+        };
     }
 }
