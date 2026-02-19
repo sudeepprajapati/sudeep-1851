@@ -6,6 +6,7 @@ import { CreateBrandDto } from './dto/create-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { Role } from '../../common/enums/role.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { UpdateBrandStatusDto } from './dto/update-brand-status.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('brands')
@@ -29,6 +30,15 @@ export class BrandController {
     @Get(':id')
     findOne(@Param('id', ParseIntPipe) id: number) {
         return this.brandService.findOne(id);
+    }
+
+    @Roles(Role.ADMIN)
+    @Put(':id/status')
+    updateStatus(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: UpdateBrandStatusDto,
+    ) {
+        return this.brandService.updateStatus(id, dto.status);
     }
 
     @Roles(Role.ADMIN)

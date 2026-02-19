@@ -13,6 +13,7 @@ import { UpdateBrandDto } from '../brands/dto/update-brand.dto';
 import { User } from '../users/entities/user.entity';
 import { BrandResponseDto } from './dto/brand-response.dto';
 import { Role } from '../../common/enums/role.enum';
+import { BrandStatus } from 'src/common/enums/brand-status.enum';
 
 @Injectable()
 export class BrandService {
@@ -42,6 +43,7 @@ export class BrandService {
         const brand = this.brandRepo.create({
             ...dto,
             createdBy: admin,
+            status: BrandStatus.DISAPPROVED,
         });
 
         try {
@@ -106,6 +108,27 @@ export class BrandService {
         return this.mapToResponse(updatedBrand);
     }
 
+    async updateStatus(id: number, status: BrandStatus): Promise<BrandResponseDto> {
+        const brand = await this.brandRepo.findOne({
+            where: { id },
+            relations: ['createdBy'],
+        });
+
+        if (!brand) {
+            throw new NotFoundException(`Brand with ID ${id} not found`);
+        }
+
+        if (brand.status === status) {
+            throw new BadRequestException(`Brand is already ${status}`);
+        }
+
+        brand.status = status;
+
+        const updated = await this.brandRepo.save(brand);
+
+        return this.mapToResponse(updated);
+    }
+
     async delete(id: number) {
         const result = await this.brandRepo.delete(id);
 
@@ -125,6 +148,7 @@ export class BrandService {
             name: brand.name,
             description: brand.description,
             logoUrl: brand.logoUrl,
+            status: brand.status,
             createdAt: brand.createdAt,
             updatedAt: brand.updatedAt,
             createdBy: brand.createdBy
@@ -135,4 +159,5 @@ export class BrandService {
                 : null,
         };
     }
+
 }
