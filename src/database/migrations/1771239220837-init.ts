@@ -4,19 +4,16 @@ export class Init1771239220837 implements MigrationInterface {
     name = 'Init1771239220837'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        // Check if the enum type already exists in the database
         const typeExists = await queryRunner.query(`
             SELECT EXISTS (
                 SELECT 1 FROM pg_type 
                 WHERE typname = 'users_role_enum'
             ) as "exists"`);
 
-        // Only create the enum type if it doesn't exist
         if (!typeExists[0].exists) {
             await queryRunner.query(`CREATE TYPE "public"."users_role_enum" AS ENUM('USER', 'AUTHOR', 'BRAND', 'ADMIN', 'SUPERADMIN')`);
         }
 
-        // Check if users table exists before creating
         const tableExists = await queryRunner.query(`
             SELECT EXISTS (
                 SELECT 1 FROM information_schema.tables 

@@ -39,7 +39,7 @@ export class AuthService {
         const user = await this.usersService.createUserWithRole(
             email,
             password,
-            Role.USER,
+            Role.BRAND,
         );
 
         if (!user) {
