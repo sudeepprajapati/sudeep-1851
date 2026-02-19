@@ -3,11 +3,15 @@ import {
     ConflictException,
     UnauthorizedException,
     Logger,
+    InternalServerErrorException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
+import { Brand } from '../brands/entities/brand.entity';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -25,6 +29,8 @@ export class AuthService {
         private readonly usersService: UsersService,
         private readonly jwtService: JwtService,
         private readonly configService: ConfigService,
+        @InjectRepository(Brand)
+        private readonly brandRepository: Repository<Brand>,
     ) { }
 
     async signup(signupDto: SignupDto) {
@@ -44,6 +50,23 @@ export class AuthService {
 
         if (!user) {
             throw new ConflictException('Email already exists');
+        }
+
+        try {
+            const brand = this.brandRepository.create({
+                name: email,
+                createdBy: user,
+            });
+            const savedBrand = await this.brandRepository.save(brand);
+
+            await this.usersService.updateBrandId(user.id, savedBrand.id);
+            user.brandId = savedBrand.id;
+        } catch (error) {
+            this.logger.error(
+                `Failed to create brand during signup for ${email}`,
+                error instanceof Error ? error.stack : String(error),
+            );
+            throw new InternalServerErrorException('Failed to complete signup');
         }
 
         return {

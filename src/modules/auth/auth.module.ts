@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { StringValue } from 'ms';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -11,10 +12,13 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { UsersModule } from '../users/users.module';
 import { AdminSeeder } from 'src/common/seeders/admin.seeder';
 import { UsersService } from '../users/users.service';
+import { Brand } from '../brands/entities/brand.entity';
 
 @Module({
     imports: [
         ConfigModule,
+
+        TypeOrmModule.forFeature([Brand]),
 
         UsersModule,
 
@@ -45,7 +49,7 @@ import { UsersService } from '../users/users.service';
         }),
     ],
     controllers: [AuthController],
-    providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, AdminSeeder],
-    exports: [JwtAuthGuard, RolesGuard],
+    providers: [AuthService, JwtStrategy, JwtAuthGuard, AdminSeeder],
+    exports: [JwtAuthGuard],
 })
 export class AuthModule { }
