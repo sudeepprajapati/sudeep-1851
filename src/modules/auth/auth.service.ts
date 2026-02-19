@@ -2,14 +2,12 @@ import {
     Injectable,
     ConflictException,
     UnauthorizedException,
-    InternalServerErrorException,
+    Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
-import { User } from './entities/user.entity';
+import { UsersService } from '../users/users.service';
+import { User } from '../users/entities/user.entity';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -21,11 +19,10 @@ interface JwtPayload {
 
 @Injectable()
 export class AuthService {
-    private readonly SALT_ROUNDS = 12;
+    private readonly logger = new Logger(AuthService.name);
 
     constructor(
-        @InjectRepository(User)
-        private readonly usersRepository: Repository<User>,
+        private readonly usersService: UsersService,
         private readonly jwtService: JwtService,
         private readonly configService: ConfigService,
     ) { }
@@ -33,27 +30,20 @@ export class AuthService {
     async signup(signupDto: SignupDto) {
         const { email, password } = signupDto;
 
-        const existingUser = await this.usersRepository.findOne({
-            where: { email },
-            select: ['id'],
-        });
+        const existingUser = await this.usersService.findByEmail(email);
 
         if (existingUser) {
             throw new ConflictException('Email already exists');
         }
 
-        const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
-
-        const user = this.usersRepository.create({
+        const user = await this.usersService.createUserWithRole(
             email,
-            password: hashedPassword,
-            role: Role.USER,
-        });
+            password,
+            Role.BRAND,
+        );
 
-        try {
-            await this.usersRepository.save(user);
-        } catch {
-            throw new InternalServerErrorException('User creation failed');
+        if (!user) {
+            throw new ConflictException('Email already exists');
         }
 
         return {
@@ -65,15 +55,16 @@ export class AuthService {
     async login(loginDto: LoginDto) {
         const { email, password } = loginDto;
 
-        const user = await this.usersRepository.findOne({
-            where: { email },
-        });
+        const user = await this.usersService.findByEmail(email);
 
         if (!user) {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        const passwordMatches = await bcrypt.compare(password, user.password);
+        const passwordMatches = await this.usersService.comparePasswords(
+            password,
+            user.password,
+        );
 
         if (!passwordMatches) {
             throw new UnauthorizedException('Invalid credentials');
@@ -99,3 +90,4 @@ export class AuthService {
         return safeUser;
     }
 }
+

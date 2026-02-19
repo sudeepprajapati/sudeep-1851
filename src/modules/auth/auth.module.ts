@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -7,28 +6,34 @@ import { StringValue } from 'ms';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RolesGuard } from './guards/roles.guard';
-import { User } from './entities/user.entity';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { UsersModule } from '../users/users.module';
+import { AdminSeeder } from 'src/common/seeders/admin.seeder';
+import { UsersService } from '../users/users.service';
 
 @Module({
     imports: [
         ConfigModule,
 
-        TypeOrmModule.forFeature([User]),
+        UsersModule,
 
         PassportModule,
 
         JwtModule.registerAsync({
             inject: [ConfigService],
             useFactory: (configService: ConfigService) => {
-                const secret = configService.get<string>('JWT_SECRET');
-                const expiresIn =
-                    (configService.get<string>('JWT_EXPIRES_IN') || '86400') as StringValue;
+                const secret = configService.getOrThrow<string>('JWT_SECRET');
+                const expiresInRaw = configService.getOrThrow<string>('JWT_EXPIRES_IN');
 
-                if (!secret) {
-                    throw new Error('JWT_SECRET is not defined');
+                // Validate format strictly
+                if (!/^\d+(s|m|h|d)$/.test(expiresInRaw)) {
+                    throw new Error(
+                        'JWT_EXPIRES_IN must include a time unit suffix (e.g., 86400s, 24h, 7d)',
+                    );
                 }
+
+                const expiresIn = expiresInRaw as StringValue;
 
                 return {
                     secret,
@@ -36,12 +41,11 @@ import { User } from './entities/user.entity';
                         expiresIn,
                     },
                 };
-            },
+            }
         }),
-
     ],
     controllers: [AuthController],
-    providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],
+    providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, AdminSeeder],
     exports: [JwtAuthGuard, RolesGuard],
 })
 export class AuthModule { }
