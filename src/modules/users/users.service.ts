@@ -1,8 +1,9 @@
 import {
-    ConflictException,
+    BadRequestException,
     Injectable,
     InternalServerErrorException,
     Logger,
+    NotFoundException,
 } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -31,6 +32,10 @@ export class UsersService {
         return bcrypt.compare(plainPassword, hashedPassword);
     }
 
+    async updateBrandId(userId: string, brandId: number): Promise<void> {
+        await this.usersRepository.update({ id: userId }, { brandId });
+    }
+
     async findByEmail(email: string): Promise<User | null> {
         return this.usersRepository.findOne({
             where: { email },
@@ -47,6 +52,7 @@ export class UsersService {
         email: string,
         password: string,
         role: Role,
+        brandId?: number,
     ): Promise<User | null> {
         const existingUser = await this.usersRepository.findOne({
             where: { email },
@@ -57,12 +63,27 @@ export class UsersService {
             return null;
         }
 
+        if (role === Role.ADMIN && brandId) {
+            throw new BadRequestException('Admin cannot have brandId');
+        }
+
+        if (role === Role.BRAND && brandId) {
+            const brandExists = await this.usersRepository.query(
+                `SELECT 1 FROM brands WHERE id = $1 LIMIT 1`,
+                [brandId],
+            );
+            if (!brandExists || brandExists.length === 0) {
+                throw new NotFoundException(`Brand with ID ${brandId} not found`);
+            }
+        }
+
         const hashedPassword = await this.hashPassword(password);
 
         const user = this.usersRepository.create({
             email,
             password: hashedPassword,
             role,
+            brandId: role === Role.BRAND ? brandId : null,
         });
 
         try {

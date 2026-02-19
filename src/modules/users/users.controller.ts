@@ -44,6 +44,7 @@ export class UsersController {
             createUserDto.email,
             createUserDto.password,
             Role.BRAND,
+            createUserDto.brandId,
         );
 
         if (!result) {
