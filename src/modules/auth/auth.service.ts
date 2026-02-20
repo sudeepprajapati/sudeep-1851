@@ -46,27 +46,12 @@ export class AuthService {
             email,
             password,
             Role.BRAND,
+            undefined,
+            false,
         );
 
         if (!user) {
             throw new ConflictException('Email already exists');
-        }
-
-        try {
-            const brand = this.brandRepository.create({
-                name: email,
-                createdBy: user,
-            });
-            const savedBrand = await this.brandRepository.save(brand);
-
-            await this.usersService.updateBrandId(user.id, savedBrand.id);
-            user.brandId = savedBrand.id;
-        } catch (error) {
-            this.logger.error(
-                `Failed to create brand during signup for ${email}`,
-                error instanceof Error ? error.stack : String(error),
-            );
-            throw new InternalServerErrorException('Failed to complete signup');
         }
 
         return {

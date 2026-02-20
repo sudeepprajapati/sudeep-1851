@@ -12,4 +12,12 @@ export class UpdateBrandDto {
     @IsOptional()
     @IsString()
     logoUrl?: string;
+
+    @IsOptional()
+    @IsString()
+    email?: string;
+
+    @IsOptional()
+    @IsString()
+    password?: string;
 }
