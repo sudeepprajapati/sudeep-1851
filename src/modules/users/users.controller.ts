@@ -45,6 +45,7 @@ export class UsersController {
             createUserDto.password,
             Role.BRAND,
             createUserDto.brandId,
+            true,
         );
 
         if (!result) {
@@ -56,7 +57,8 @@ export class UsersController {
 
         return {
             success: true,
-            message: 'Brand user created successfully',
+            message:
+                'Brand user created successfully and credentials email sent',
             user: result,
         };
     }

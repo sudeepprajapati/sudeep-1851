@@ -14,6 +14,7 @@ import { User } from '../users/entities/user.entity';
 import { BrandResponseDto } from './dto/brand-response.dto';
 import { Role } from '../../common/enums/role.enum';
 import { BrandStatus } from 'src/common/enums/brand-status.enum';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class BrandService {
@@ -22,6 +23,7 @@ export class BrandService {
     constructor(
         @InjectRepository(Brand)
         private brandRepo: Repository<Brand>,
+        private readonly usersService: UsersService,
     ) { }
 
     async create(dto: CreateBrandDto, admin: User): Promise<BrandResponseDto> {
@@ -29,7 +31,6 @@ export class BrandService {
             throw new ForbiddenException('Only ADMIN users can create brands');
         }
 
-        // Check if brand already exists
         const existingBrand = await this.brandRepo.findOne({
             where: { name: dto.name },
         });
@@ -46,16 +47,8 @@ export class BrandService {
             status: BrandStatus.DISAPPROVED,
         });
 
-        try {
-            const saved = await this.brandRepo.save(brand);
-            return this.mapToResponse(saved);
-        } catch (error: any) {
-            // Postgres unique constraint error
-            if (error.code === '23505') {
-                throw new BadRequestException('Brand already exists');
-            }
-            throw error;
-        }
+        const saved = await this.brandRepo.save(brand);
+        return this.mapToResponse(saved);
     }
 
     async findAll(): Promise<BrandResponseDto[]> {
@@ -63,12 +56,7 @@ export class BrandService {
             relations: ['createdBy'],
         });
 
-        return brands.map((brand) => {
-            if (!brand.createdBy) {
-                this.logger.warn(`Brand ${brand.id} has no createdBy user`);
-            }
-            return this.mapToResponse(brand);
-        });
+        return brands.map((brand) => this.mapToResponse(brand));
     }
 
     async findOne(id: number): Promise<BrandResponseDto> {
@@ -81,14 +69,14 @@ export class BrandService {
             throw new NotFoundException(`Brand with ID ${id} not found`);
         }
 
-        if (!brand.createdBy) {
-            this.logger.warn(`Brand ${id} has no createdBy user`);
-        }
-
         return this.mapToResponse(brand);
     }
 
-    async update(id: number, dto: UpdateBrandDto): Promise<BrandResponseDto> {
+    async update(
+        id: number,
+        dto: UpdateBrandDto,
+        user: User,
+    ): Promise<any> {
         const brand = await this.brandRepo.findOne({
             where: { id },
             relations: ['createdBy'],
@@ -98,17 +86,114 @@ export class BrandService {
             throw new NotFoundException(`Brand with ID ${id} not found`);
         }
 
-        if (!brand.createdBy) {
-            this.logger.warn(`Brand ${id} has no createdBy user`);
+        // Access Control
+        if (user.role === Role.ADMIN) {
+            // allowed
+        } else if (user.role === Role.BRAND) {
+            if (!user.brandId || user.brandId !== id) {
+                throw new ForbiddenException(
+                    'You can only update your own brand',
+                );
+            }
+        } else {
+            throw new ForbiddenException('Access denied');
         }
 
-        Object.assign(brand, dto);
-        const updatedBrand = await this.brandRepo.save(brand);
+        const responseData: Record<string, any> = {};
+        let passwordUpdated = false;
 
-        return this.mapToResponse(updatedBrand);
+        // -------------------
+        // Update Brand Fields
+        // -------------------
+        if (dto.name !== undefined) {
+            brand.name = dto.name;
+            responseData.name = dto.name;
+        }
+
+        if (dto.description !== undefined) {
+            brand.description = dto.description;
+            responseData.description = dto.description;
+        }
+
+        if (dto.logoUrl !== undefined) {
+            brand.logoUrl = dto.logoUrl;
+            responseData.logoUrl = dto.logoUrl;
+        }
+
+        if (Object.keys(responseData).length > 0) {
+            await this.brandRepo.save(brand);
+        }
+
+        // -------------------
+        // Update User Fields
+        if (dto.email || dto.password) {
+            const brandUser =
+                await this.usersService.findBrandUserByBrandId(id);
+
+            if (!brandUser) {
+                throw new NotFoundException(
+                    'Brand user associated with this brand not found',
+                );
+            }
+
+            if (dto.email) {
+                const existingUser =
+                    await this.usersService.findByEmail(dto.email);
+
+                if (existingUser && existingUser.id !== brandUser.id) {
+                    throw new BadRequestException(
+                        'Email already in use by another user',
+                    );
+                }
+
+                brandUser.email = dto.email;
+                responseData.email = dto.email;
+            }
+
+            if (dto.password) {
+                brandUser.password =
+                    await this.usersService.hashPassword(dto.password);
+                passwordUpdated = true;
+            }
+
+            await this.usersService.saveUser(brandUser);
+        }
+
+        if (
+            Object.keys(responseData).length === 0 &&
+            !passwordUpdated
+        ) {
+            throw new BadRequestException(
+                'No valid fields provided for update',
+            );
+        }
+
+        if (passwordUpdated && Object.keys(responseData).length === 0) {
+            return {
+                success: true,
+                message: 'Password updated successfully',
+            };
+        }
+
+        if (passwordUpdated) {
+            return {
+                success: true,
+                message: 'Brand and credentials updated successfully',
+                data: responseData,
+            };
+        }
+
+        return {
+            success: true,
+            message: 'Brand updated successfully',
+            data: responseData,
+        };
     }
 
-    async updateStatus(id: number, status: BrandStatus): Promise<BrandResponseDto> {
+    async updateStatus(
+        id: number,
+        status: BrandStatus,
+    ): Promise<BrandResponseDto> {
         const brand = await this.brandRepo.findOne({
             where: { id },
             relations: ['createdBy'],
@@ -139,9 +224,6 @@ export class BrandService {
         return { message: 'Brand deleted successfully' };
     }
 
-    // -----------------------------
-    // Private Mapper
-    // -----------------------------
     private mapToResponse(brand: Brand): BrandResponseDto {
         return {
             id: brand.id,
@@ -159,5 +241,4 @@ export class BrandService {
                 : null,
         };
     }
-
 }

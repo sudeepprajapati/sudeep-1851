@@ -1,4 +1,15 @@
-import { Controller, Post, Get, Put, Delete, Body, Param, Req, UseGuards, ParseIntPipe } from '@nestjs/common';
+import {
+    Controller,
+    Post,
+    Get,
+    Put,
+    Delete,
+    Body,
+    Param,
+    Req,
+    UseGuards,
+    ParseIntPipe,
+} from '@nestjs/common';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { BrandService } from './brand.service';
@@ -15,10 +26,7 @@ export class BrandController {
 
     @Roles(Role.ADMIN)
     @Post()
-    create(
-        @Body() dto: CreateBrandDto,
-        @Req() req,
-    ) {
+    create(@Body() dto: CreateBrandDto, @Req() req) {
         return this.brandService.create(dto, req.user);
     }
 
@@ -41,13 +49,14 @@ export class BrandController {
         return this.brandService.updateStatus(id, dto.status);
     }
 
-    @Roles(Role.ADMIN)
+    // UPDATED ACCESS CONTROL
     @Put(':id')
     update(
         @Param('id', ParseIntPipe) id: number,
         @Body() dto: UpdateBrandDto,
+        @Req() req,
     ) {
-        return this.brandService.update(id, dto);
+        return this.brandService.update(id, dto, req.user);
     }
 
     @Roles(Role.ADMIN)
