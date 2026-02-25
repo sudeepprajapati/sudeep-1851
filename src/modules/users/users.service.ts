@@ -1,7 +1,6 @@
 import {
     BadRequestException,
     Injectable,
-    InternalServerErrorException,
     Logger,
     NotFoundException,
 } from '@nestjs/common';
@@ -11,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { Role } from '../../common/enums/role.enum';
 import { MailService } from '../mail/mail.service';
+import { Brand } from '../brands/entities/brand.entity';
 
 @Injectable()
 export class UsersService {
@@ -20,6 +20,8 @@ export class UsersService {
     constructor(
         @InjectRepository(User)
         private readonly usersRepository: Repository<User>,
+        @InjectRepository(Brand)
+        private readonly brandRepository: Repository<Brand>,
         private readonly mailService: MailService,
     ) { }
 
@@ -57,6 +59,7 @@ export class UsersService {
         brandId?: number,
         requireBrandAssociation = false,
     ): Promise<User | null> {
+
         const existingUser = await this.usersRepository.findOne({
             where: { email },
             select: ['id'],
@@ -77,12 +80,12 @@ export class UsersService {
                 );
             }
 
-            const brandExists = await this.usersRepository.query(
-                `SELECT 1 FROM brands WHERE id = $1 LIMIT 1`,
-                [brandId],
-            );
+            const brandExists = await this.brandRepository.findOne({
+                where: { id: brandId },
+                select: ['id'],
+            });
 
-            if (!brandExists || brandExists.length === 0) {
+            if (!brandExists) {
                 throw new NotFoundException(
                     `Brand with ID ${brandId} not found`,
                 );
@@ -103,7 +106,7 @@ export class UsersService {
             }
         }
 
-        return await this.usersRepository.manager.transaction(
+        const savedUser = await this.usersRepository.manager.transaction(
             async (transactionalEntityManager) => {
                 const hashedPassword = await this.hashPassword(password);
 
@@ -114,19 +117,26 @@ export class UsersService {
                     brandId: role === Role.BRAND ? brandId : null,
                 });
 
-                const savedUser = await transactionalEntityManager.save(user);
-
-                if (role === Role.BRAND) {
-                    await this.mailService.sendBrandCredentials(
-                        email,
-                        email,
-                        password,
-                    );
-                }
-
-                return savedUser;
+                return transactionalEntityManager.save(user);
             },
         );
+
+        if (role === Role.BRAND || role === Role.AUTHOR) {
+            try {
+                await this.mailService.sendUserCredentials(
+                    email,
+                    email,
+                    password,
+                    role,
+                );
+            } catch (error) {
+                this.logger.error(
+                    `User created but email failed for ${email}`,
+                );
+            }
+        }
+
+        return savedUser;
     }
 
     async findBrandUserByBrandId(brandId: number): Promise<User | null> {

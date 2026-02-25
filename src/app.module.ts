@@ -8,6 +8,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AppDataSource } from './database/data-source';
 import { BrandModule } from './modules/brands/brand.module';
 import { MailModule } from './modules/mail/mail.module';
+import { BrandAuthorModule } from './modules/brand-author/brand-author.module';
+import { ArticleModule } from './modules/article/article.module';
 
 @Module({
   imports: [
@@ -23,7 +25,9 @@ import { MailModule } from './modules/mail/mail.module';
 
     AuthModule,
     BrandModule,
-    MailModule
+    MailModule,
+    BrandAuthorModule,
+    ArticleModule
   ],
   controllers: [AppController],
   providers: [AppService],

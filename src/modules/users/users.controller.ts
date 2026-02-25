@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, UseInterceptors, ClassSerializerInterceptor } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, UseInterceptors, ClassSerializerInterceptor, ConflictException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -23,10 +23,7 @@ export class UsersController {
         );
 
         if (!result) {
-            return {
-                success: false,
-                message: 'Failed to create admin user. Email may already exist.',
-            };
+            throw new ConflictException('Failed to create admin user. Email already exists');
         }
 
         return {
@@ -49,16 +46,34 @@ export class UsersController {
         );
 
         if (!result) {
-            return {
-                success: false,
-                message: 'Failed to create brand user. Email may already exist.',
-            };
+            throw new ConflictException('Failed to create brand user. Email already exists');
         }
 
         return {
             success: true,
             message:
                 'Brand user created successfully and credentials email sent',
+            user: result,
+        };
+    }
+
+    @Post('create-author')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    async createAuthor(@Body() createUserDto: CreateUserDto) {
+        const result = await this.usersService.createUserWithRole(
+            createUserDto.email,
+            createUserDto.password,
+            Role.AUTHOR,
+        );
+
+        if (!result) {
+            throw new ConflictException('Failed to create author user. Email already exists');
+        }
+
+        return {
+            success: true,
+            message: 'Author user created successfully and credentials email sent',
             user: result,
         };
     }

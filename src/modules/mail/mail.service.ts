@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
+import { Role } from '../../common/enums/role.enum';
 
 @Injectable()
 export class MailService {
@@ -7,19 +8,27 @@ export class MailService {
 
     constructor(private readonly mailerService: MailerService) { }
 
-    async sendBrandCredentials(
+    async sendUserCredentials(
         to: string,
         email: string,
         password: string,
+        role: Role,
     ): Promise<void> {
+        const accountType =
+            role === Role.AUTHOR
+                ? 'Author'
+                : role === Role.BRAND
+                    ? 'Brand'
+                    : 'User';
+
         try {
             await this.mailerService.sendMail({
                 to,
-                subject: 'Your Brand Account Credentials',
+                subject: `Your ${accountType} Account Credentials`,
                 text: `
 Hello,
 
-Your brand account has been successfully created.
+Your ${accountType.toLowerCase()} account has been successfully created.
 
 Login Details:
 Email: ${email}
@@ -31,7 +40,7 @@ If you did not expect this account, please contact the administrator.
 
 Regards,
 Brand Portal Team
-            `,
+                `,
             });
         } catch (error) {
             this.logger.error(
@@ -39,7 +48,7 @@ Brand Portal Team
                 error instanceof Error ? error.stack : String(error),
             );
             throw new InternalServerErrorException(
-                'Brand user created but failed to send credentials email',
+                `${accountType} user created but failed to send credentials email`,
             );
         }
     }
