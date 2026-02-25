@@ -9,14 +9,15 @@ import {
     UseGuards,
     Request,
     ParseIntPipe,
+    Query,
 } from '@nestjs/common';
-import { ArticleService } from './article.service';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/enums/role.enum';
-import { CreateArticleDto } from './dto/create-article.dto';
-import { UpdateArticleDto } from './dto/update-article.dto';
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { Role } from '../../../common/enums/role.enum';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
+import { ArticleService } from '../article.service';
+import { CreateArticleDto } from '../dto/create-article.dto';
+import { UpdateArticleDto } from '../dto/update-article.dto';
 
 @Controller('brand/articles')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -30,8 +31,14 @@ export class BrandArticleController {
     }
 
     @Get()
-    list(@Request() req) {
-        return this.articleService.listBrandArticles(req.user);
+    async list(
+        @Request() req,
+        @Query('status') status?: string | string[],
+    ) {
+        return this.articleService.listBrandArticles(
+            req.user,
+            status as any,
+        );
     }
 
     @Patch(':id')

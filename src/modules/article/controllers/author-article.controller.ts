@@ -1,11 +1,11 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Request, UseGuards } from "@nestjs/common";
-import { Roles } from "src/common/decorators/roles.decorator";
-import { Role } from "src/common/enums/role.enum";
-import { JwtAuthGuard } from "src/common/guards/jwt-auth.guard";
-import { RolesGuard } from "src/common/guards/roles.guard";
-import { ArticleService } from "./article.service";
-import { CreateArticleDto } from "./dto/create-article.dto";
-import { UpdateArticleDto } from "./dto/update-article.dto";
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Request, UseGuards } from "@nestjs/common";
+import { Roles } from "../../../common/decorators/roles.decorator";
+import { Role } from "../../../common/enums/role.enum";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { RolesGuard } from "../../../common/guards/roles.guard";
+import { ArticleService } from "../article.service";
+import { CreateArticleDto } from "../dto/create-article.dto";
+import { UpdateArticleDto } from "../dto/update-article.dto";
 
 @Controller('author/articles')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -19,8 +19,14 @@ export class AuthorArticleController {
     }
 
     @Get()
-    list(@Request() req) {
-        return this.articleService.listAuthorArticles(req.user);
+    async list(
+        @Request() req,
+        @Query('status') status?: string | string[],
+    ) {
+        return this.articleService.listAuthorArticles(
+            req.user,
+            status as any,
+        );
     }
 
     @Patch(':id')

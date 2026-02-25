@@ -3,9 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Article } from './entities/article.entity';
 import { BrandAuthor } from '../brand-author/entities/brand-author.entity';
 import { ArticleService } from './article.service';
-import { BrandArticleController } from './brand-article.controller';
-import { AuthorArticleController } from './author-article.controller';
+import { BrandArticleController } from './controllers/brand-article.controller';
+import { AuthorArticleController } from './controllers/author-article.controller';
 import { Brand } from '../brands/entities/brand.entity';
+import { AdminArticleController } from './controllers/admin-article.controller';
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { Brand } from '../brands/entities/brand.entity';
     controllers: [
         BrandArticleController,
         AuthorArticleController,
+        AdminArticleController
     ],
     providers: [ArticleService],
 })
