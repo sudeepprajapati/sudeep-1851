@@ -2,6 +2,7 @@ import {
     Injectable,
     ForbiddenException,
     NotFoundException,
+    BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -162,13 +163,10 @@ export class ArticleService {
             throw new NotFoundException('Article not found');
         }
 
-        if (
-            article.status === ArticleStatus.PENDING_REVIEW ||
-            article.status === ArticleStatus.PUBLISHED ||
-            article.status === ArticleStatus.ARCHIVED
-        ) {
-            throw new ForbiddenException(
-                'Article cannot be modified in its current status',
+        // Validate empty body first
+        if (!dto.title && !dto.content && !dto.status) {
+            throw new BadRequestException(
+                'At least one field must be provided for update',
             );
         }
 
@@ -190,6 +188,17 @@ export class ArticleService {
                     'Author can only update own articles',
                 );
             }
+        }
+
+        // Lock editing for restricted states
+        if (
+            article.status === ArticleStatus.PENDING_REVIEW ||
+            article.status === ArticleStatus.PUBLISHED ||
+            article.status === ArticleStatus.ARCHIVED
+        ) {
+            throw new ForbiddenException(
+                'Article cannot be modified in its current status',
+            );
         }
 
         if (dto.status) {
