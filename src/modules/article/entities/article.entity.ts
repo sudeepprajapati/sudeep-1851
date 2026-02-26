@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Brand } from '../../brands/entities/brand.entity';
 import { User } from '../../users/entities/user.entity';
+import { ArticleStatus } from '../../../common/enums/article-status.enum';
 
 @Entity('articles')
 export class Article {
@@ -20,6 +21,13 @@ export class Article {
 
     @Column({ type: 'text' })
     content: string;
+
+    @Column({
+        type: 'enum',
+        enum: ArticleStatus,
+        default: ArticleStatus.DRAFT,
+    })
+    status: ArticleStatus;
 
     @ManyToOne(() => Brand, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'brandId' })

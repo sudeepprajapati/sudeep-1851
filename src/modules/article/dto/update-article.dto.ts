@@ -1,4 +1,5 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { ArticleStatus } from 'src/common/enums/article-status.enum';
 
 export class UpdateArticleDto {
     @IsOptional()
@@ -8,4 +9,8 @@ export class UpdateArticleDto {
     @IsOptional()
     @IsString()
     content?: string;
+
+    @IsOptional()
+    @IsEnum(ArticleStatus)
+    status?: ArticleStatus;
 }
