@@ -18,6 +18,7 @@ import { RolesGuard } from '../../../common/guards/roles.guard';
 import { ArticleService } from '../article.service';
 import { CreateArticleDto } from '../dto/create-article.dto';
 import { UpdateArticleDto } from '../dto/update-article.dto';
+import { BrandArticleQueryDto } from '../dto/brand-article-query.dto';
 
 @Controller('brand/articles')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -33,11 +34,11 @@ export class BrandArticleController {
     @Get()
     async list(
         @Request() req,
-        @Query('status') status?: string | string[],
+        @Query() query: BrandArticleQueryDto,
     ) {
-        return this.articleService.listBrandArticles(
+        return this.articleService.listBrandArticlesPaginated(
             req.user,
-            status as any,
+            query,
         );
     }
 
