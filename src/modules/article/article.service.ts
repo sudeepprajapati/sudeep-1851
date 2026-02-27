@@ -14,6 +14,9 @@ import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { Brand } from '../brands/entities/brand.entity';
 import { ArticleStatus } from '../../common/enums/article-status.enum';
+import { PublicArticleQueryDto } from './dto/public-article-query.dto';
+import { PaginatedResponse } from '../../common/interfaces/paginated-response.interface';
+import { BrandArticleQueryDto } from './dto/brand-article-query.dto';
 
 @Injectable()
 export class ArticleService {
@@ -33,16 +36,28 @@ export class ArticleService {
         title: true,
         content: true,
         status: true,
+        publishedAt: true,
         brandId: true,
-        authorId: true,
         createdAt: true,
         updatedAt: true,
         author: {
             id: true,
-            email: true,
             role: true,
         },
     } as const;
+
+    private readonly publicArticleSelect = [
+        'article.id',
+        'article.title',
+        'article.content',
+        'article.status',
+        'article.publishedAt',
+        'article.brandId',
+        'article.createdAt',
+        'article.updatedAt',
+        'author.id',
+        'author.email',
+    ];
 
     private validateStatusChange(
         user: User,
@@ -262,7 +277,16 @@ export class ArticleService {
 
         this.validateStatusChange(user, article, newStatus);
 
+        // Set publishedAt only on first transition to PUBLISHED
+        if (
+            newStatus === ArticleStatus.PUBLISHED &&
+            article.status !== ArticleStatus.PUBLISHED
+        ) {
+            article.publishedAt = new Date();
+        }
+
         article.status = newStatus;
+
         await this.articleRepository.save(article);
 
         const updated = await this.articleRepository.findOne({
@@ -305,33 +329,48 @@ export class ArticleService {
         });
     }
 
-    async listBrandArticles(
+    async listBrandArticlesPaginated(
         user: User,
-        status?: ArticleStatus | ArticleStatus[],
-    ): Promise<Article[]> {
-
+        query: BrandArticleQueryDto
+    ): Promise<PaginatedResponse<Article>> {
         if (!user.brandId) {
             throw new ForbiddenException('Brand user must have brandId');
         }
 
-        const where: any = {
-            brandId: user.brandId,
-        };
+        const { page, limit, sortBy, order, status } = query;
+
+        const qb = this.articleRepository
+            .createQueryBuilder('article')
+            .leftJoinAndSelect('article.author', 'author')
+            .where('article.brandId = :brandId', {
+                brandId: user.brandId,
+            })
+            .select(this.publicArticleSelect)
 
         if (status) {
             if (Array.isArray(status)) {
-                where.status = In(status);
+                qb.andWhere('article.status IN (:...status)', { status });
             } else {
-                where.status = status;
+                qb.andWhere('article.status = :status', { status });
             }
         }
 
-        return this.articleRepository.find({
-            where,
-            select: this.articleSelect,
-            relations: { author: true },
-            order: { createdAt: 'DESC' },
-        });
+        const normalizedOrder =
+            order && order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+        qb.orderBy(`article.${sortBy}`, normalizedOrder)
+            .addOrderBy('article.id', 'DESC')
+            .skip((page - 1) * limit)
+            .take(limit);
+
+        const [data, total] = await qb.getManyAndCount();
+
+        return {
+            data,
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page,
+        };
     }
 
     async listAuthorArticles(
@@ -357,5 +396,72 @@ export class ArticleService {
             relations: { author: true },
             order: { createdAt: 'DESC' },
         });
+    }
+
+    async listPublishedArticles(
+        queryDto: PublicArticleQueryDto,
+    ): Promise<PaginatedResponse<Article>> {
+        const {
+            page,
+            limit,
+            sortBy,
+            order,
+            search,
+            brandId,
+        } = queryDto;
+
+        const qb = this.articleRepository
+            .createQueryBuilder('article')
+            .leftJoinAndSelect('article.author', 'author')
+            .where('article.status = :status', {
+                status: ArticleStatus.PUBLISHED,
+            })
+            .select(this.publicArticleSelect)
+
+        if (search) {
+            qb.andWhere(
+                '(article.title ILIKE :search OR article.content ILIKE :search)',
+                { search: `%${search}%` },
+            );
+        }
+
+        if (brandId) {
+            qb.andWhere('article.brandId = :brandId', { brandId });
+        }
+
+        const normalizedOrder =
+            order && order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+        qb.orderBy(`article.${sortBy}`, normalizedOrder)
+            .addOrderBy('article.id', 'DESC') // stable pagination
+            .skip((page - 1) * limit)
+            .take(limit);
+
+        const [data, total] = await qb.getManyAndCount();
+
+        return {
+            data,
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page,
+        };
+    }
+
+    async getPublishedArticle(id: number): Promise<Article> {
+        const article = await this.articleRepository
+            .createQueryBuilder('article')
+            .leftJoinAndSelect('article.author', 'author')
+            .where('article.id = :id', { id })
+            .andWhere('article.status = :status', {
+                status: ArticleStatus.PUBLISHED,
+            })
+            .select(this.publicArticleSelect)
+            .getOne();
+
+        if (!article) {
+            throw new NotFoundException('Article not found');
+        }
+
+        return article;
     }
 }

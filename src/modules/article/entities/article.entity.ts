@@ -29,6 +29,9 @@ export class Article {
     })
     status: ArticleStatus;
 
+    @Column({ type: 'timestamp', nullable: true })
+    publishedAt?: Date;
+
     @ManyToOne(() => Brand, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'brandId' })
     brand: Brand;

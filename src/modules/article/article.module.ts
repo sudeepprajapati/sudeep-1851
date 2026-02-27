@@ -7,6 +7,7 @@ import { BrandArticleController } from './controllers/brand-article.controller';
 import { AuthorArticleController } from './controllers/author-article.controller';
 import { Brand } from '../brands/entities/brand.entity';
 import { AdminArticleController } from './controllers/admin-article.controller';
+import { PublicArticleController } from './controllers/public-article.controller';
 
 @Module({
     imports: [
@@ -15,7 +16,8 @@ import { AdminArticleController } from './controllers/admin-article.controller';
     controllers: [
         BrandArticleController,
         AuthorArticleController,
-        AdminArticleController
+        AdminArticleController,
+        PublicArticleController
     ],
     providers: [ArticleService],
 })
